@@ -1,0 +1,64 @@
+# serverless.yml
+
+service: robpc-dynamodb-test
+
+plugins:
+  - serverless-dynamodb-local
+  - serverless-offline
+
+custom:
+  tableName: 'robpc-dynamodb-test-${self:provider.stage}'
+  dynamodb:
+    start:
+      # inMemory: false
+      # dbPath: ${env:PWD}/.dunlindb/
+      migration: true
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: dev
+  region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["DunlinDynamoDBTable", "Arn" ] }
+  environment:
+    TABLE_NAME: ${self:custom.tableName}
+
+functions:
+  read:
+    handler: index.get
+    events:
+      - http: GET /api/test/{id}
+  write:
+    handler: index.post
+    events:
+      - http: POST /api/test/{id}
+
+resources:
+  Resources:
+    DunlinDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:custom.tableName}
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+          - AttributeName: date
+            KeyType: RANGE
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: date
+            AttributeType: S

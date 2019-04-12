@@ -1,0 +1,20 @@
+{
+  "name": "dynamodb-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "setup": "node_modules/.bin/serverless dynamodb install",
+    "start": "node_modules/.bin/serverless offline start --migrate"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "serverless": "^1.40.0",
+    "serverless-dynamodb-local": "^0.2.37",
+    "serverless-offline": "^4.9.4"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.437.0"
+  }
+}
