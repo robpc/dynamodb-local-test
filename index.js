@@ -1,63 +1,73 @@
 'use strict';
-const { query, save } = require('./db');
-const Logger = require('./logger');
+const AWS = require('aws-sdk');
 
-const logger = new Logger('index');
+const { IS_OFFLINE, TABLE_NAME } = process.env;
 
-const { TABLE_NAME } = process.env;
+if (IS_OFFLINE) {
+  AWS.config.update({
+    region: 'us-east-1',
+    endpoint: 'http://localhost:8000',
+  });
+}
+
+const dynamodbClient = new AWS.DynamoDB.DocumentClient();
 
 const createResponse = (statusCode, body) => ({
   statusCode,
   body: JSON.stringify(body),
 });
 
-exports.get = async (event) => {
-  // logger.info("request: " + JSON.stringify(event, null, 2));
-
+exports.get = event => new Promise((resolve) => {
   if (!event.pathParameters && !event.pathParameters.id) {
-    return createResponse(400, {code: 400, message: "missing id"})
+    resolve(createResponse(400, {code: 400, message: "missing id"}));
   }
 
   const { id } = event.pathParameters;
 
-  const response = await query({
+  dynamodbClient.query(
+    {
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'id = :id',
+      ExpressionAttributeValues: { ':id': id },
+    },
+    (err, data) => {
+      if (err) {
+        console.log(err);
+        resolve(createResponse(500, { code: 500, message: err.message }));
+        return;
+      }
+
+      if (!data || !data.Items || data.Count <= 0) {
+        console.log('No data result for query', data);
+        resolve(createResponse(200, { id, date: null }));
+        return;
+      }
+
+      const items = data.Items;
+      const result = items[items.length - 1]
+      resolve(createResponse(200, result));
+    },
+  );
+});
+
+exports.post = event => new Promise((resolve) => {
+  if (!event.pathParameters && !event.pathParameters.id) {
+    resolve(createResponse(400, {code: 400, message: "missing id"}));
+  }
+
+  const { id } = event.pathParameters;
+
+  const params = {
+    Item: { id, date: new Date().toLocaleString() },
     TableName: TABLE_NAME,
-    KeyConditionExpression: 'id = :id',
-    ExpressionAttributeValues: { ':id': id },
-  })
-  .then((items) => {
-    if (items && items.length > 0) {
-      const result = items[items.length - 1];
-      return createResponse(200, result);
+  };
+
+  dynamodbClient.put(params, (err) => {
+    if (err) {
+      console.log(err);
+      resolve(createResponse(500, { code: 500, message: err.message }));
     } else {
-      return createResponse(200, { id, date: null });
-    }
-  })
-  .catch((err) => {
-    logger.error(err);
-    return createResponse(500, { code: 500, message: err.message });
+      resolve(createResponse(200, params.Item));
+    };
   });
-
-  // logger.info("response: " + JSON.stringify(response))
-  return response;
-};
-
-exports.post = async (event) => {
-  // logger.info("request: " + JSON.stringify(event, null, 2));
-
-  if (!event.pathParameters && !event.pathParameters.id) {
-    return createResponse(400, {code: 400, message: "missing id"})
-  }
-
-  const { id } = event.pathParameters;
-
-  const response = await save(TABLE_NAME, { id, date: new Date().toLocaleString() })
-    .then(item => createResponse(200, item))
-    .catch((err) => {
-      logger.error(err);
-      return createResponse(500, { code: 500, message: err.message });
-    });
-
-  // logger.info("response: " + JSON.stringify(response))
-  return response;
-};
+});
