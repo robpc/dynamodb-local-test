@@ -48,11 +48,14 @@ exports.get = event => new Promise((resolve) => {
       resolve(createResponse(200, result));
     },
   );
+}).catch((err) => {
+  console.log(err);
+  return { statusCode: 500, err }
 });
 
 exports.post = event => new Promise((resolve) => {
   if (!event.pathParameters && !event.pathParameters.id) {
-    resolve(createResponse(400, {code: 400, message: "missing id"}));
+    resolve(createResponse(400, { code: 400, message: "missing id" }));
   }
 
   const { id } = event.pathParameters;
@@ -70,4 +73,7 @@ exports.post = event => new Promise((resolve) => {
       resolve(createResponse(200, params.Item));
     };
   });
+}).catch((err) => {
+  console.log(err);
+  return { statusCode: 500, body: err }
 });
